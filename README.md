@@ -7,8 +7,8 @@ Zero external dependencies. Python 3.10+.
 ## Install
 
 ```bash
-git clone https://github.com/postfiatorg/pf-regime-sdk.git
-cd pf-regime-sdk
+git clone https://github.com/sendonanawitakeshi/post-fiat-signals.git
+cd post-fiat-signals
 ```
 
 No pip install required. The SDK is a single package with no dependencies beyond the Python standard library.
@@ -110,6 +110,31 @@ except StaleDataError as e:
 ```
 
 The client automatically retries on 503 and 5xx errors with exponential backoff (1s, 2s, 4s).
+
+## Safety & Validation
+
+**Always run the watchdog before opening positions.** The regime scanner tells you WHAT to trade. The watchdog tells you WHETHER the signals are still trustworthy.
+
+```bash
+export PF_API_URL=http://your-node:8080
+python3 examples/watchdog.py
+```
+
+The watchdog runs three integrity checks before returning a VALID or INVALID verdict:
+
+| Check | What It Measures | INVALID When |
+|-------|-----------------|--------------|
+| Signal Decay | CRYPTO_LEADS reliability trend | Score dropped 20%+ from all-time, or 2+ signal types decaying simultaneously |
+| Regime Stability | Classification confidence | Confidence below 50, or detection accuracy shifted 15pp+ from baseline |
+| Filter Integrity | Live hit rates vs backtested baselines | Max deviation exceeds 20pp, or CRYPTO_LEADS hit rate below 50% (under NEUTRAL) |
+
+**Workflow:**
+
+1. Run `watchdog.py` — if INVALID, stop. Do not trade.
+2. Run `regime_scanner.py` — if WAIT, no actionable setup exists.
+3. Only if both return VALID + EXECUTE do you have a position worth taking.
+
+The baselines come from 264 trading days of backtesting. Models drift. The watchdog catches that drift before it costs money. A VALID verdict means the statistical foundation (Granger-validated semi-leads-crypto at 1h-72h lag, 82% hit rate under NEUTRAL) is still intact. An INVALID verdict means something has shifted and the historical edge may no longer apply.
 
 ## Configuration
 
