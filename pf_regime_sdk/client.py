@@ -111,6 +111,14 @@ class RegimeClient:
                 last_error = RegimeAPIError(f"Invalid JSON response: {e}")
                 logger.warning(f"Bad JSON from {url}, retry {attempt}/{self.max_retries}")
 
+            except OSError as e:
+                if "timed out" in str(e).lower():
+                    last_error = TimeoutError(f"Request timed out after {self.timeout}s")
+                    logger.warning(f"Timeout on {url}, retry {attempt}/{self.max_retries}")
+                else:
+                    last_error = ConnectionError(f"Connection error: {e}")
+                    logger.warning(f"OS error: {e}, retry {attempt}/{self.max_retries}")
+
             if attempt < self.max_retries:
                 delay = self.backoff_base * (2 ** (attempt - 1))
                 logger.info(f"Backing off {delay:.1f}s before retry")
@@ -124,27 +132,42 @@ class RegimeClient:
     def get_regime_state(self) -> RegimeState:
         """Fetch current regime classification."""
         data = self._request("/regime/current")
-        return RegimeState.from_dict(data)
+        try:
+            return RegimeState.from_dict(data)
+        except (KeyError, TypeError) as e:
+            raise RegimeAPIError(f"Unexpected response format from /regime/current: {e}")
 
     def get_rebalance_queue(self) -> RebalanceQueue:
         """Fetch the active rebalancing queue."""
         data = self._request("/rebalancing/queue")
-        return RebalanceQueue.from_dict(data)
+        try:
+            return RebalanceQueue.from_dict(data)
+        except (KeyError, TypeError) as e:
+            raise RegimeAPIError(f"Unexpected response format from /rebalancing/queue: {e}")
 
     def get_signal_scores(self) -> ReliabilityReport:
         """Fetch signal reliability scores with decay status."""
         data = self._request("/signals/reliability")
-        return ReliabilityReport.from_dict(data)
+        try:
+            return ReliabilityReport.from_dict(data)
+        except (KeyError, TypeError) as e:
+            raise RegimeAPIError(f"Unexpected response format from /signals/reliability: {e}")
 
     def get_filtered_signals(self) -> FilteredSignalReport:
         """Fetch regime-conditional signal filter report."""
         data = self._request("/signals/filtered")
-        return FilteredSignalReport.from_dict(data)
+        try:
+            return FilteredSignalReport.from_dict(data)
+        except (KeyError, TypeError) as e:
+            raise RegimeAPIError(f"Unexpected response format from /signals/filtered: {e}")
 
     def get_regime_history(self) -> RegimeHistory:
         """Fetch 90-day regime transition timeline."""
         data = self._request("/regime/history")
-        return RegimeHistory.from_dict(data)
+        try:
+            return RegimeHistory.from_dict(data)
+        except (KeyError, TypeError) as e:
+            raise RegimeAPIError(f"Unexpected response format from /regime/history: {e}")
 
     def get_health(self) -> HealthStatus:
         """Fetch server health status. Does not retry — single attempt."""
@@ -152,7 +175,21 @@ class RegimeClient:
         try:
             req = urllib.request.Request(url, headers={"Accept": "application/json"})
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                return HealthStatus.from_dict(data)
-        except (urllib.error.URLError, json.JSONDecodeError) as e:
+                body = resp.read().decode("utf-8")
+        except urllib.error.URLError as e:
+            reason = str(e.reason) if hasattr(e, "reason") else str(e)
+            if "timed out" in reason.lower():
+                raise TimeoutError(f"Health check timed out after {self.timeout}s")
+            raise ConnectionError(f"Health check failed: {reason}")
+        except OSError as e:
+            if "timed out" in str(e).lower():
+                raise TimeoutError(f"Health check timed out after {self.timeout}s")
             raise ConnectionError(f"Health check failed: {e}")
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError as e:
+            raise RegimeAPIError(f"Health check returned invalid JSON: {e}")
+        try:
+            return HealthStatus.from_dict(data)
+        except (KeyError, TypeError) as e:
+            raise RegimeAPIError(f"Unexpected health response format: {e}")
