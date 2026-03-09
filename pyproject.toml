@@ -1,0 +1,14 @@
+[project]
+name = "pf-regime-sdk"
+version = "0.2.0"
+description = "Python SDK for the Post Fiat Signal Intelligence API — regime-aware semi-crypto divergence signals"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+readme = "README.md"
+
+[project.urls]
+Repository = "https://github.com/postfiatorg/pf-regime-sdk"
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.backends._legacy:_Backend"
