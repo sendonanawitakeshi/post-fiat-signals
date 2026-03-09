@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
-"""Signal Integrity Watchdog — VALID/INVALID pre-trade validation.
+"""Circuit Breaker Watchdog — pre-trade signal integrity check.
 
-Polls the Signal Intelligence API via the SDK and checks whether the
-semi-crypto lead-lag relationship is still intact before you open positions.
+Polls the Signal Intelligence API and checks system health and signal
+fidelity using server-computed metadata. Returns a VALID, DEGRADED, or
+STOP verdict with a corresponding exit code.
 
-Three checks:
-  1. Signal Decay — are CRYPTO_LEADS reliability scores degrading?
-  2. Regime Stability — is the regime classification confident and stable?
-  3. Filter Integrity — do live hit rates still match backtested baselines?
-
-If any check fails, the verdict is INVALID and you should not open new
-positions based on these signals until the issue resolves.
+Exit codes:
+  0 = VALID      — all checks pass, safe to trade
+  1 = DEGRADED   — warning conditions, proceed with caution
+  2 = STOP       — signal integrity compromised, do not trade
 
 Usage:
     export PF_API_URL=http://your-node:8080
@@ -18,222 +16,220 @@ Usage:
 
     # or pass directly
     python3 watchdog.py --url http://your-node:8080
+
+    # use exit code in scripts
+    python3 watchdog.py && python3 regime_scanner.py
 """
 
 import os
 import sys
+from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from pf_regime_sdk import RegimeClient
 
 
-# ── Baselines (from 264 trading days of backtesting) ────────────────────────
+# ── Thresholds ──────────────────────────────────────────────────────────────
 
-# Regime-filter hit rates under NEUTRAL (the reference regime)
-BASELINE_HIT_RATES = {
-    "CRYPTO_LEADS":  0.82,   # 82% — the single actionable setup
-    "SEMI_LEADS":    0.12,   # 12% — anti-signal
-    "FULL_DECOUPLE": 0.50,   # 50% — coin flip
-}
-
-# Regime detection baselines
-BASELINE_ACCURACY = 60.0     # % accuracy at 60d optimal window
-BASELINE_FP_RATE = 40.5      # % false positive rate
-BASELINE_LEAD_TIME = 27.3    # trading days average lead time
-
-# Thresholds
-DECAY_DROP_THRESHOLD = 20.0  # % drop from all-time = decaying
-MIN_CONFIDENCE = 50          # regime confidence floor
-MAX_HIT_RATE_DRIFT = 0.20    # 20pp max deviation from baseline
-CRYPTO_LEADS_FLOOR = 0.50    # absolute floor for CRYPTO_LEADS hit rate
+STALE_WARNING_SEC = 900      # 15 min — data may be one refresh behind
+STALE_CRITICAL_SEC = 1800    # 30 min — data is definitely stale
+MIN_CONFIDENCE = 50          # regime classifier confidence floor
+DECAY_TYPES_WARN = 1         # 1 type decaying = warning
+DECAY_TYPES_STOP = 2         # 2+ types decaying = regime shift underway
+CRYPTO_LEADS_DROP_WARN = 20  # % drop from all-time = warning
+CRYPTO_LEADS_DROP_STOP = 40  # % drop from all-time = stop
 
 
-# ── Three checks ────────────────────────────────────────────────────────────
+# ── Circuit Breaker Checks ──────────────────────────────────────────────────
 
-def check_signal_decay(reliability):
-    """Check 1: Is CRYPTO_LEADS reliability decaying?
+def check_system_health(health):
+    """Check 1: Is the API pipeline functional?
 
-    If the primary signal type shows reliability decay (rolling score
-    dropped 20%+ from all-time), the Granger-validated lead-lag
-    relationship may be breaking down.
+    Parses: status, dataAgeSec, isStale, lastError, dataFresh
     """
+    checks = []
+
+    # API status
+    if health.status == "warming":
+        return "STOP", "API still warming up — cache not loaded", [
+            ("api_status", health.status, "STOP")]
+    if health.status != "ok":
+        checks.append(("api_status", health.status, "DEGRADED"))
+    else:
+        checks.append(("api_status", health.status, "VALID"))
+
+    # Data freshness
+    age = health.data_age_sec or 0
+    if age > STALE_CRITICAL_SEC:
+        checks.append(("data_age", f"{age}s (>{STALE_CRITICAL_SEC}s)", "STOP"))
+    elif age > STALE_WARNING_SEC:
+        checks.append(("data_age", f"{age}s (>{STALE_WARNING_SEC}s)", "DEGRADED"))
+    else:
+        checks.append(("data_age", f"{age}s", "VALID"))
+
+    # Staleness flag
+    if health.is_stale:
+        checks.append(("is_stale", "true", "STOP"))
+    else:
+        checks.append(("is_stale", "false", "VALID"))
+
+    # Last error
+    if health.last_error:
+        checks.append(("last_error", health.last_error[:60], "DEGRADED"))
+    else:
+        checks.append(("last_error", "none", "VALID"))
+
+    # Data loaded
+    if not health.data_fresh:
+        checks.append(("data_fresh", "false", "STOP"))
+    else:
+        checks.append(("data_fresh", "true", "VALID"))
+
+    worst = _worst(checks)
+    reason = _summarize(checks, worst)
+    return worst, reason, checks
+
+
+def check_signal_fidelity(reliability):
+    """Check 2: Are signal reliability scores intact?
+
+    Parses: isDecaying per type, dropPct, regimeAlert.triggered
+    """
+    checks = []
+
+    # Count decaying signal types
+    decaying = []
+    for sig_type, sig in reliability.types.items():
+        if sig.is_decaying:
+            decaying.append(sig_type)
+
+    if len(decaying) >= DECAY_TYPES_STOP:
+        checks.append(("decaying_types", f"{len(decaying)}/3 ({', '.join(decaying)})", "STOP"))
+    elif len(decaying) >= DECAY_TYPES_WARN:
+        checks.append(("decaying_types", f"{len(decaying)}/3 ({', '.join(decaying)})", "DEGRADED"))
+    else:
+        checks.append(("decaying_types", "0/3", "VALID"))
+
+    # CRYPTO_LEADS specifically (the primary signal)
     cl = reliability.types.get("CRYPTO_LEADS")
-    if not cl:
-        return "INVALID", "CRYPTO_LEADS not found in reliability data", {}
+    if cl:
+        drop = cl.drop_pct
+        if drop >= CRYPTO_LEADS_DROP_STOP:
+            checks.append(("crypto_leads_drop", f"{drop:.1f}% (>{CRYPTO_LEADS_DROP_STOP}%)", "STOP"))
+        elif drop >= CRYPTO_LEADS_DROP_WARN:
+            checks.append(("crypto_leads_drop", f"{drop:.1f}% (>{CRYPTO_LEADS_DROP_WARN}%)", "DEGRADED"))
+        else:
+            checks.append(("crypto_leads_drop", f"{drop:.1f}%", "VALID"))
 
-    detail = {
-        "score": cl.score,
-        "all_time": cl.all_time_score,
-        "current_rolling": cl.current_rolling,
-        "drop_pct": cl.drop_pct,
-        "is_decaying": cl.is_decaying,
-        "freshness": cl.freshness,
-    }
+        checks.append(("crypto_leads_freshness", cl.freshness,
+                        "STOP" if cl.freshness == "Stale" else "VALID"))
 
-    # Check if any signal types are decaying
-    decaying_types = [t for t, s in reliability.types.items() if s.is_decaying]
-    detail["decaying_types"] = decaying_types
-    detail["regime_alert"] = reliability.regime_alert
+    # Regime alert (server-side: 2+ types decaying = regime shift)
+    alert = reliability.regime_alert
+    if alert.get("triggered"):
+        checks.append(("regime_alert", f"triggered ({alert.get('count', 0)} types)", "STOP"))
+    else:
+        checks.append(("regime_alert", "clear", "VALID"))
 
-    if cl.is_decaying:
-        return ("INVALID",
-                f"CRYPTO_LEADS reliability decaying: score dropped {cl.drop_pct:.1f}% "
-                f"from all-time ({cl.all_time_score} -> {cl.current_rolling})",
-                detail)
-
-    if len(decaying_types) >= 2:
-        return ("INVALID",
-                f"{len(decaying_types)} signal types decaying ({', '.join(decaying_types)}) "
-                f"— potential regime shift underway",
-                detail)
-
-    return "VALID", f"CRYPTO_LEADS stable (score={cl.score}, drop={cl.drop_pct:.1f}%)", detail
+    worst = _worst(checks)
+    reason = _summarize(checks, worst)
+    return worst, reason, checks
 
 
-def check_regime_stability(regime):
-    """Check 2: Is the regime classification confident and stable?
+def check_regime_confidence(regime):
+    """Check 3: Is the regime classification trustworthy?
 
-    Low confidence means the regime detector is uncertain — the optimal
-    detection window may be shifting, which degrades signal quality.
+    Parses: confidence, isAlert, backtestContext.accuracy
     """
-    detail = {
-        "regime_id": regime.regime_id,
-        "regime_type": regime.regime_type,
-        "confidence": regime.confidence_score,
-        "is_alert": regime.is_alert,
-    }
+    checks = []
+
+    conf = regime.confidence_score
+    if conf < MIN_CONFIDENCE:
+        checks.append(("confidence", f"{conf} (<{MIN_CONFIDENCE})", "DEGRADED"))
+    else:
+        checks.append(("confidence", str(conf), "VALID"))
+
+    checks.append(("regime", regime.regime_id, "VALID"))
+    checks.append(("is_alert", str(regime.is_alert),
+                    "DEGRADED" if regime.is_alert else "VALID"))
 
     if regime.backtest_context:
         bt = regime.backtest_context
-        detail["accuracy"] = bt.accuracy
-        detail["fp_rate"] = bt.fp_rate
-        detail["avg_lead_time"] = bt.avg_lead_time
-        detail["optimal_window"] = bt.optimal_window
+        checks.append(("bt_accuracy", f"{bt.accuracy:.0f}%", "VALID"))
+        checks.append(("bt_fp_rate", f"{bt.fp_rate:.0f}%",
+                        "DEGRADED" if bt.fp_rate > 50 else "VALID"))
 
-        # Check if accuracy has degraded significantly
-        accuracy_delta = abs(bt.accuracy - BASELINE_ACCURACY)
-        if accuracy_delta > 15:
-            return ("INVALID",
-                    f"Regime detection accuracy shifted {accuracy_delta:.0f}pp "
-                    f"from baseline ({bt.accuracy:.0f}% vs {BASELINE_ACCURACY:.0f}%)",
-                    detail)
-
-    if regime.confidence_score < MIN_CONFIDENCE:
-        return ("INVALID",
-                f"Regime confidence {regime.confidence_score} below {MIN_CONFIDENCE} threshold "
-                f"— classification unreliable",
-                detail)
-
-    return ("VALID",
-            f"Regime {regime.regime_id} (conf={regime.confidence_score}) — stable",
-            detail)
+    worst = _worst(checks)
+    reason = _summarize(checks, worst)
+    return worst, reason, checks
 
 
-def check_filter_integrity(filtered):
-    """Check 3: Do current regime-filter hit rates match baselines?
+# ── Helpers ─────────────────────────────────────────────────────────────────
 
-    Compares the live filter rules against backtested NEUTRAL baselines.
-    Large deviations mean the model is drifting from validated performance.
-    """
-    detail = {
-        "current_regime": filtered.regime_id,
-        "types": {},
-    }
+SEVERITY = {"VALID": 0, "DEGRADED": 1, "STOP": 2}
 
-    # Use NEUTRAL baselines as reference regardless of current regime
-    max_drift = 0
-    cl_hit_rate = None
+def _worst(checks):
+    max_sev = max(SEVERITY[c[2]] for c in checks)
+    return ["VALID", "DEGRADED", "STOP"][max_sev]
 
-    for sig_type, baseline_rate in BASELINE_HIT_RATES.items():
-        rule = filtered.filter_rules.get(sig_type)
-        if not rule:
-            continue
-
-        live_rate = rule.hit_rate
-        drift = abs(live_rate - baseline_rate)
-        if drift > max_drift:
-            max_drift = drift
-
-        if sig_type == "CRYPTO_LEADS":
-            cl_hit_rate = live_rate
-
-        detail["types"][sig_type] = {
-            "live_rate": live_rate,
-            "baseline_rate": baseline_rate,
-            "drift": round(drift, 4),
-            "drift_pp": round(drift * 100, 1),
-            "classification": rule.classification,
-        }
-
-    detail["max_drift_pp"] = round(max_drift * 100, 1)
-
-    # Under non-NEUTRAL regimes, hit rates will differ from NEUTRAL baselines
-    # by design. Only flag if we're in NEUTRAL and rates are off.
-    if filtered.regime_id == "NEUTRAL":
-        if cl_hit_rate is not None and cl_hit_rate < CRYPTO_LEADS_FLOOR:
-            return ("INVALID",
-                    f"CRYPTO_LEADS hit rate collapsed to {cl_hit_rate:.0%} "
-                    f"(floor={CRYPTO_LEADS_FLOOR:.0%})",
-                    detail)
-
-        if max_drift > MAX_HIT_RATE_DRIFT:
-            return ("INVALID",
-                    f"Max hit rate drift {max_drift*100:.0f}pp exceeds "
-                    f"{MAX_HIT_RATE_DRIFT*100:.0f}pp threshold",
-                    detail)
-
-    return ("VALID",
-            f"Filter rules consistent (max drift={max_drift*100:.1f}pp, "
-            f"regime={filtered.regime_id})",
-            detail)
+def _summarize(checks, worst):
+    if worst == "VALID":
+        return "all checks passed"
+    failing = [c for c in checks if c[2] == worst]
+    return "; ".join(f"{c[0]}={c[1]}" for c in failing)
 
 
-# ── CLI output ──────────────────────────────────────────────────────────────
+# ── CLI Output ──────────────────────────────────────────────────────────────
 
-def print_report(checks, regime, filtered, reliability):
+EXIT_CODES = {"VALID": 0, "DEGRADED": 1, "STOP": 2}
+
+VERDICT_LABELS = {
+    "VALID": "VALID — safe to trade",
+    "DEGRADED": "DEGRADED — proceed with caution",
+    "STOP": "STOP: SIGNAL INTEGRITY COMPROMISED",
+}
+
+def print_report(results, ts):
     pad = lambda s, n: (str(s) + " " * n)[:n]
 
-    all_valid = all(c[0] == "VALID" for c in checks)
-    verdict = "VALID" if all_valid else "INVALID"
-    verdict_color = "\033[32m" if all_valid else "\033[31m"
+    verdicts = [r[0] for r in results]
+    overall = "STOP" if "STOP" in verdicts else ("DEGRADED" if "DEGRADED" in verdicts else "VALID")
+    exit_code = EXIT_CODES[overall]
+
+    colors = {"VALID": "\033[32m", "DEGRADED": "\033[33m", "STOP": "\033[31m"}
+    reset = "\033[0m"
 
     print()
     print("=" * 66)
-    print("  SIGNAL INTEGRITY WATCHDOG — Pre-Trade Validation")
+    print("  CIRCUIT BREAKER — Signal Integrity Watchdog")
     print("=" * 66)
-    print()
-    print(f"  Regime: {regime.regime_id} ({regime.regime_type})")
-    print(f"  Confidence: {regime.confidence_score}")
-    print(f"  Timestamp: {regime.timestamp}")
+    print(f"  Timestamp: {ts}")
     print()
 
-    labels = ["Signal Decay", "Regime Stability", "Filter Integrity"]
-    for i, (status, reason, detail) in enumerate(checks):
-        color = "\033[32m" if status == "VALID" else "\033[31m"
-        print(f"  {color}{pad(status, 8)}\033[0m {labels[i]}")
-        print(f"           {reason}")
+    labels = ["System Health", "Signal Fidelity", "Regime Confidence"]
+    for i, (status, reason, checks) in enumerate(results):
+        c = colors[status]
+        print(f"  {c}{pad(status, 10)}{reset} {labels[i]}")
+        for name, value, sev in checks:
+            sc = colors[sev]
+            print(f"             {pad(name, 22)} {sc}{value}{reset}")
         print()
 
     print("  " + "-" * 62)
-    print(f"  VERDICT: {verdict_color}{verdict}\033[0m")
+    vc = colors[overall]
+    print(f"  VERDICT: {vc}{VERDICT_LABELS[overall]}{reset}")
+    print(f"  EXIT CODE: {exit_code}")
     print()
 
-    if verdict == "VALID":
-        print("  Signal integrity confirmed. Lead-lag relationship intact.")
-        print("  Safe to evaluate EXECUTE/WAIT via regime_scanner.py.")
+    if overall == "VALID":
+        print("  Pipeline intact. Run regime_scanner.py for trade decisions.")
+    elif overall == "DEGRADED":
+        print("  Warning conditions detected. Signals may be unreliable.")
+        print("  Reduce position sizes or wait for resolution.")
     else:
-        print("  Signal integrity degraded. DO NOT open new positions.")
-        print("  Re-run after conditions stabilize.")
-    print()
-
-    # Baselines reference
-    print("  " + "-" * 62)
-    print("  Baseline Reference (264 trading days):")
-    print(f"    CRYPTO_LEADS hit rate: {BASELINE_HIT_RATES['CRYPTO_LEADS']:.0%}")
-    print(f"    Regime accuracy: {BASELINE_ACCURACY:.0f}%")
-    print(f"    Decay threshold: {DECAY_DROP_THRESHOLD:.0f}% drop from all-time")
-    print(f"    Min confidence: {MIN_CONFIDENCE}")
+        print("  SIGNAL INTEGRITY COMPROMISED. Do NOT open new positions.")
+        print("  Investigate degraded dimensions before resuming.")
     print()
 
 
@@ -253,21 +249,24 @@ def main():
     print(f"Connecting to {api_url}...")
 
     try:
-        regime = client.get_regime_state()
+        health = client.get_health()
         reliability = client.get_signal_scores()
-        filtered = client.get_filtered_signals()
-
-        check1 = check_signal_decay(reliability)
-        check2 = check_regime_stability(regime)
-        check3 = check_filter_integrity(filtered)
-
-        print_report([check1, check2, check3], regime, filtered, reliability)
-
+        regime = client.get_regime_state()
     except Exception as e:
-        print(f"\nERROR: {type(e).__name__}: {e}")
-        print(f"\nMake sure the Signal Intelligence API is running at {api_url}")
-        print("Start it with: node signal_api.js")
-        sys.exit(1)
+        print(f"\n  \033[31mSTOP\033[0m  API unreachable: {type(e).__name__}: {e}")
+        print(f"\n  Make sure the Signal Intelligence API is running at {api_url}")
+        sys.exit(2)
+
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    r1 = check_system_health(health)
+    r2 = check_signal_fidelity(reliability)
+    r3 = check_regime_confidence(regime)
+
+    print_report([r1, r2, r3], ts)
+
+    overall = "STOP" if "STOP" in [r1[0], r2[0], r3[0]] else (
+        "DEGRADED" if "DEGRADED" in [r1[0], r2[0], r3[0]] else "VALID")
+    sys.exit(EXIT_CODES[overall])
 
 
 if __name__ == "__main__":

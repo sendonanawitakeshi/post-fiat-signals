@@ -118,23 +118,34 @@ The client automatically retries on 503 and 5xx errors with exponential backoff 
 ```bash
 export PF_API_URL=http://your-node:8080
 python3 examples/watchdog.py
+
+# use exit code in scripts
+python3 examples/watchdog.py && python3 examples/regime_scanner.py
 ```
 
-The watchdog runs three integrity checks before returning a VALID or INVALID verdict:
+The watchdog implements a **circuit breaker** pattern with three verdict levels:
 
-| Check | What It Measures | INVALID When |
-|-------|-----------------|--------------|
-| Signal Decay | CRYPTO_LEADS reliability trend | Score dropped 20%+ from all-time, or 2+ signal types decaying simultaneously |
-| Regime Stability | Classification confidence | Confidence below 50, or detection accuracy shifted 15pp+ from baseline |
-| Filter Integrity | Live hit rates vs backtested baselines | Max deviation exceeds 20pp, or CRYPTO_LEADS hit rate below 50% (under NEUTRAL) |
+| Verdict | Exit Code | Meaning |
+|---------|-----------|---------|
+| `VALID` | 0 | All checks pass — safe to trade |
+| `DEGRADED` | 1 | Warning conditions — proceed with caution, reduce size |
+| `STOP` | 2 | Signal integrity compromised — do not open positions |
+
+Three independent health dimensions are checked:
+
+| Check | What It Measures | DEGRADED When | STOP When |
+|-------|-----------------|---------------|-----------|
+| System Health | API status, data freshness, staleness | Data age > 15min, or last error present | Data age > 30min, API warming, or stale flag set |
+| Signal Fidelity | Decay status across signal types, CRYPTO_LEADS drop % | 1 type decaying, or CRYPTO_LEADS dropped 20%+ | 2+ types decaying, CRYPTO_LEADS dropped 40%+, or regime alert triggered |
+| Regime Confidence | Classifier confidence, alert status, backtest accuracy | Confidence below 50, alert active, or FP rate > 50% | (rolls up from sub-checks) |
 
 **Workflow:**
 
-1. Run `watchdog.py` — if INVALID, stop. Do not trade.
+1. Run `watchdog.py` — if STOP, do not trade. If DEGRADED, reduce position sizes.
 2. Run `regime_scanner.py` — if WAIT, no actionable setup exists.
-3. Only if both return VALID + EXECUTE do you have a position worth taking.
+3. Only if watchdog returns VALID and scanner returns EXECUTE do you have a full-conviction position.
 
-The baselines come from 264 trading days of backtesting. Models drift. The watchdog catches that drift before it costs money. A VALID verdict means the statistical foundation (Granger-validated semi-leads-crypto at 1h-72h lag, 82% hit rate under NEUTRAL) is still intact. An INVALID verdict means something has shifted and the historical edge may no longer apply.
+The baselines come from 264 trading days of backtesting. Models drift. The watchdog catches that drift before it costs money. A VALID verdict means the statistical foundation (Granger-validated semi-leads-crypto at 1h-72h lag, 82% hit rate under NEUTRAL) is still intact. A STOP verdict means something has shifted and the historical edge may no longer apply.
 
 ## Configuration
 
