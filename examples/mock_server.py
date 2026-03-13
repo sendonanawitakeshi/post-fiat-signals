@@ -66,9 +66,9 @@ def regime_current():
         },
         "backtestContext": {
             "optimalWindow": 60,
-            "accuracy": 0.60,
+            "accuracy": 60,
             "avgLeadTime": 27.0,
-            "fpRate": 0.40,
+            "fpRate": 40,
         },
         "timestamp": _ts(),
         "dataAgeSec": 120,
@@ -126,9 +126,10 @@ def signals_reliability():
     return {
         "window": 30,
         "regimeAlert": {
-            "active": False,
-            "decayingTypes": 1,
-            "threshold": 2,
+            "triggered": False,
+            "count": 1,
+            "types": ["SEMI_LEADS"],
+            "msg": "1 signal type shows reliability decay",
         },
         "types": {
             "SEMI_LEADS": {
@@ -350,7 +351,16 @@ if __name__ == "__main__":
         if arg == "--port" and i < len(sys.argv) - 1:
             port = int(sys.argv[i + 1])
 
-    server = HTTPServer(("127.0.0.1", port), MockHandler)
+    try:
+        server = HTTPServer(("127.0.0.1", port), MockHandler)
+    except OSError as e:
+        if e.errno == 98:
+            print(f"Error: port {port} is already in use.")
+            print(f"Try a different port:  python3 examples/mock_server.py --port 9090")
+            print(f"Then set:              export PF_API_URL=http://localhost:9090")
+        else:
+            print(f"Error starting server: {e}")
+        sys.exit(1)
     print(f"Mock API running on http://localhost:{port}")
     print(f"Endpoints: {', '.join(ROUTES.keys())}")
     print("Press Ctrl+C to stop.\n")

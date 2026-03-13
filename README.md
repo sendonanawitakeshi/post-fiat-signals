@@ -86,7 +86,7 @@ The scanner implements a 7-gate decision tree. A signal must pass all gates to r
 | 7 | Reliability decaying? | WAIT — signal going stale |
 
 The single actionable setup from 264 trading days of backtesting:
-- **NEUTRAL regime + CRYPTO_LEADS type**: 82% hit rate, +8.24% avg 14d return, n=17
+- **NEUTRAL regime + CRYPTO_LEADS type**: 82% hit rate, +8.24% avg 14d return, n=22
 
 Everything else is WAIT. SEMI_LEADS under NEUTRAL is a documented anti-signal (12% hit rate, -14.60% avg return).
 
@@ -192,6 +192,10 @@ The baselines come from 264 trading days of backtesting. Models drift. The watch
 **If the live API returns STOP**: this is expected protective behavior during the current SYSTEMIC regime, not a malfunction. See [`docs/STOP_STATE_DIAGNOSTIC.md`](docs/STOP_STATE_DIAGNOSTIC.md) for the full root cause analysis. Use the mock server to test the HEALTHY and DEGRADED paths locally.
 
 **Testing**: 15 end-to-end integration tests cover the full pipeline across HEALTHY, DEGRADED, and HALT states. See [`TESTING.md`](TESTING.md) for results and what each scenario proves.
+
+## Builder Validation
+
+**[`VALIDATION_REPORT.md`](VALIDATION_REPORT.md)** — structured results from the first builder validation loop. Documents friction points found during a zero-assistance quickstart attempt, fixes shipped from the feedback, and external builder outreach status. Updated as external responses arrive.
 
 ## Configuration
 
