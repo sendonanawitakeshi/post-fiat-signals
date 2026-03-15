@@ -66,7 +66,7 @@ if [ -z "$GITHUB_TOKEN" ]; then
     echo "$LOG_PREFIX ERROR: No token found at /home/postfiat/.github_token — cannot push"
     exit 1
 fi
-git push "https://${GITHUB_TOKEN}@github.com/sendonanawitakeshi/post-fiat-signals.git" main 2>&1 | while read line; do echo "$LOG_PREFIX $line"; done
+git push "https://${GITHUB_TOKEN}@github.com/sendoeth/post-fiat-signals.git" main 2>&1 | while read line; do echo "$LOG_PREFIX $line"; done
 
 echo "$LOG_PREFIX Pushed updated status.json (overall: $NEW_FINGERPRINT)"
 

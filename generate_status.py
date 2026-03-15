@@ -14,7 +14,7 @@ Usage:
 
 The output file is designed to be committed to the public repo so it is
 accessible at:
-    https://raw.githubusercontent.com/sendonanawitakeshi/post-fiat-signals/main/status.json
+    https://raw.githubusercontent.com/sendoeth/post-fiat-signals/main/status.json
 
 Health states:
     HEALTHY   — all subsystems operational, signals fresh, safe to integrate
@@ -370,7 +370,7 @@ def main():
             },
             "source": "rfLJ4ZRnqmGFLAcMvCD56nKGbjpdTJmMqo",
             "api_url": "http://84.32.34.46:8080",
-            "repo": "https://github.com/sendonanawitakeshi/post-fiat-signals",
+            "repo": "https://github.com/sendoeth/post-fiat-signals",
         }
         with open(out_path, "w") as f:
             json.dump(status, f, indent=2)
@@ -404,7 +404,7 @@ def main():
         },
         "source": "rfLJ4ZRnqmGFLAcMvCD56nKGbjpdTJmMqo",
         "api_url": "http://84.32.34.46:8080",
-        "repo": "https://github.com/sendonanawitakeshi/post-fiat-signals",
+        "repo": "https://github.com/sendoeth/post-fiat-signals",
     }
 
     with open(out_path, "w") as f:

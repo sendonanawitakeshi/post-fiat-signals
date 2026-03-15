@@ -9,7 +9,7 @@ Zero-intervention first run. No API keys, no pip install, no live server needed.
 ## Step 1: Clone the repo
 
 ```bash
-git clone https://github.com/sendonanawitakeshi/post-fiat-signals.git
+git clone https://github.com/sendoeth/post-fiat-signals.git
 cd post-fiat-signals
 ```
 

@@ -84,7 +84,7 @@ This research is backed by a complete signal-to-consumer pipeline, publicly avai
 
 ### Public SDK
 
-**Repository**: https://github.com/sendonanawitakeshi/post-fiat-signals
+**Repository**: https://github.com/sendoeth/post-fiat-signals
 
 Python SDK (v0.3.0) for consuming regime detection signals in real time. Zero external dependencies, Python 3.10+, auto-retry with exponential backoff, typed dataclasses for all responses. Install and run in under 2 minutes.
 
@@ -120,7 +120,7 @@ Each snippet is self-contained. Set `PF_API_URL` and run.
 
 Live testnet validator contributing to Post Fiat consensus:
 - **Public key**: `nHBcLEB4S6moQGrhMjJo1jbp58WL5psHY9EMDWNAtdqykUYiA1rF`
-- **Validator website**: https://sendonanawitakeshi.github.io/validator/
+- **Validator website**: https://sendoeth.github.io/validator/
 - **Agreement scores**: 100% (1h), 100% (24h), 99.75% (30d)
 - **Running since**: February 14, 2026
 
@@ -137,7 +137,7 @@ i attest that:
 5. The public SDK repository and all referenced endpoints are live, functional, and accessible without login or paywall.
 6. This finding has not been previously submitted as an alpha task to the Post Fiat network.
 7. i am a Post Fiat testnet validator (public key: nHBcLEB4S6moQGrhMjJo1jbp58WL5psHY9EMDWNAtdqykUYiA1rF) with 30d agreement score of 99.75%.
-8. The infrastructure described in Section 3 is publicly available at https://github.com/sendonanawitakeshi/post-fiat-signals for any network participant to verify, consume, or build upon.
+8. The infrastructure described in Section 3 is publicly available at https://github.com/sendoeth/post-fiat-signals for any network participant to verify, consume, or build upon.
 
 ---
 
@@ -161,6 +161,6 @@ i attest that:
 
 1. Check cooldown status — do NOT submit during active cooldown
 2. Run `drift_watchdog.py` to confirm Granger relationship still intact on submission day
-3. Verify SDK repo URLs one final time (`curl -s -o /dev/null -w "%{http_code}" https://github.com/sendonanawitakeshi/post-fiat-signals`)
+3. Verify SDK repo URLs one final time (`curl -s -o /dev/null -w "%{http_code}" https://github.com/sendoeth/post-fiat-signals`)
 4. Save updated context document after submission
 5. Note submission timestamp for context document cadence tracking

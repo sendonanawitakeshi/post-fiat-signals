@@ -2,7 +2,7 @@
 
 **Author**: rfLJ4ZRnqmGFLAcMvCD56nKGbjpdTJmMqo
 **Date**: March 12, 2026
-**Repo**: https://github.com/sendonanawitakeshi/post-fiat-signals
+**Repo**: https://github.com/sendoeth/post-fiat-signals
 **Status**: Requirements finalized — ready to implement
 
 ---
@@ -222,7 +222,7 @@ exit codes are shell-chainable: `full_pipeline_demo.py && my_trading_bot.py` wil
 
 ```bash
 # clone the repo
-git clone https://github.com/sendonanawitakeshi/post-fiat-signals.git
+git clone https://github.com/sendoeth/post-fiat-signals.git
 cd post-fiat-signals
 
 # start the mock API (terminal 1)
@@ -313,5 +313,5 @@ read the source files in this order:
 ---
 
 **Source wallet**: `rfLJ4ZRnqmGFLAcMvCD56nKGbjpdTJmMqo`
-**SDK**: https://github.com/sendonanawitakeshi/post-fiat-signals
+**SDK**: https://github.com/sendoeth/post-fiat-signals
 **Schema**: v1.1.0

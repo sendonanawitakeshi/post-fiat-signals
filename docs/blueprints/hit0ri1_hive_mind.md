@@ -1,7 +1,7 @@
 # Integration Blueprint: Regime Signals → hit0ri1 Hive Mind Pipeline
 
 **Target**: [hit0ri1](https://github.com/hit0ri1) — PFT validator-linked yield coordination stack
-**SDK**: [post-fiat-signals](https://github.com/sendonanawitakeshi/post-fiat-signals) v0.3.0
+**SDK**: [post-fiat-signals](https://github.com/sendoeth/post-fiat-signals) v0.3.0
 **Date**: 2026-03-09
 
 ---
@@ -70,7 +70,7 @@ If regime is hostile or signals are degraded, forces ALERT_ONLY regardless
 of downstream severity.
 
 Setup:
-  git clone https://github.com/sendonanawitakeshi/post-fiat-signals.git
+  git clone https://github.com/sendoeth/post-fiat-signals.git
   export PF_REGIME_API=http://<node-ip>:8080
 """
 
@@ -209,7 +209,7 @@ if __name__ == "__main__":
 ```bash
 # 1. clone the SDK into your project
 cd /path/to/PFT-Hive-Mind-Multi-Agent-Coordination-Logic
-git clone https://github.com/sendonanawitakeshi/post-fiat-signals.git
+git clone https://github.com/sendoeth/post-fiat-signals.git
 
 # 2. copy the regime gate module
 cp post-fiat-signals/regime_gate.py .
@@ -240,8 +240,8 @@ python3 regime_gate.py
 - NEUTRAL + CRYPTO_LEADS = 82% hit rate, +8.24% avg 14d return (n=17, 264 trading days)
 - 15-min cache refresh, circuit breaker watchdog, 36 integration tests, 18 stress test scenarios
 
-**Data contract**: Schema v1.1.0. All responses are typed JSON. No auth required. No rate limits. SDK handles retry with exponential backoff on 5xx. See [README](https://github.com/sendonanawitakeshi/post-fiat-signals#readme) for full endpoint reference and [PRODUCT.md](https://github.com/sendonanawitakeshi/post-fiat-signals/blob/main/PRODUCT.md) for the research thesis.
+**Data contract**: Schema v1.1.0. All responses are typed JSON. No auth required. No rate limits. SDK handles retry with exponential backoff on 5xx. See [README](https://github.com/sendoeth/post-fiat-signals#readme) for full endpoint reference and [PRODUCT.md](https://github.com/sendoeth/post-fiat-signals/blob/main/PRODUCT.md) for the research thesis.
 
 ---
 
-*Built by [sendoeth](https://github.com/sendonanawitakeshi) for the Post Fiat network. The SDK is the handshake — other nodes consume signals programmatically, not through social media or personal brand.*
+*Built by [sendoeth](https://github.com/sendoeth) for the Post Fiat network. The SDK is the handshake — other nodes consume signals programmatically, not through social media or personal brand.*

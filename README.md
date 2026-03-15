@@ -17,7 +17,7 @@ Live endpoint: `GET http://84.32.34.46:8080/system/status` — same schema, real
 ## Install
 
 ```bash
-git clone https://github.com/sendonanawitakeshi/post-fiat-signals.git
+git clone https://github.com/sendoeth/post-fiat-signals.git
 cd post-fiat-signals
 ```
 
