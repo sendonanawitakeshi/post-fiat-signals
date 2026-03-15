@@ -153,7 +153,7 @@ python3 examples/full_pipeline_demo.py
 ### Live API Setup
 
 ```
-export PF_API_URL=http://84.32.34.46:8080
+export PF_API_URL=http://<your-server-ip>:8080  # replace with your node IP
 python3 examples/full_pipeline_demo.py
 ```
 

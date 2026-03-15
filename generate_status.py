@@ -369,7 +369,7 @@ def main():
                 "HALT": "Signal integrity issue detected — the system is safely blocking unreliable signals. This is protective behavior, not a crash. Check component messages for explanation.",
             },
             "source": "rfLJ4ZRnqmGFLAcMvCD56nKGbjpdTJmMqo",
-            "api_url": "http://84.32.34.46:8080",
+            "api_url": os.environ.get("PF_PUBLIC_URL", "http://localhost:8080"),
             "repo": "https://github.com/sendoeth/post-fiat-signals",
         }
         with open(out_path, "w") as f:
@@ -403,7 +403,7 @@ def main():
             "HALT": "Signal integrity issue detected — the system is safely blocking unreliable signals. This is protective behavior, not a crash. Check component messages for explanation.",
         },
         "source": "rfLJ4ZRnqmGFLAcMvCD56nKGbjpdTJmMqo",
-        "api_url": "http://84.32.34.46:8080",
+        "api_url": os.environ.get("PF_PUBLIC_URL", "http://localhost:8080"),
         "repo": "https://github.com/sendoeth/post-fiat-signals",
     }
 

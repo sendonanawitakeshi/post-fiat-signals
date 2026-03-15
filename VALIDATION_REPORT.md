@@ -104,7 +104,7 @@ Both received a follow-up comment linking directly to QUICKSTART.md with a reque
 ## References
 
 - **Quickstart guide**: [QUICKSTART.md](QUICKSTART.md)
-- **System health surface**: [status.json](status.json) | [Live endpoint](http://84.32.34.46:8080/system/status)
+- **System health surface**: [status.json](status.json)
 - **STOP state diagnostic**: [docs/STOP_STATE_DIAGNOSTIC.md](docs/STOP_STATE_DIAGNOSTIC.md)
 - **Integration tests**: [TESTING.md](TESTING.md) — 15 tests across HEALTHY/DEGRADED/HALT paths
 - **Public repo**: [github.com/sendoeth/post-fiat-signals](https://github.com/sendoeth/post-fiat-signals)

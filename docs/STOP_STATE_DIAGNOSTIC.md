@@ -2,7 +2,7 @@
 
 **Date**: 2026-03-13
 **Investigator**: `rfLJ4ZRnqmGFLAcMvCD56nKGbjpdTJmMqo`
-**System health surface**: [`status.json`](../status.json) | [Live endpoint](http://84.32.34.46:8080/system/status)
+**System health surface**: [`status.json`](../status.json)
 
 ---
 
@@ -197,7 +197,7 @@ This diagnostic confirms that the live STOP state is the correct system response
 ### System Health Surface
 
 - **Static**: [`status.json`](../status.json) — auto-updated every 15 minutes
-- **Live**: [`/system/status`](http://84.32.34.46:8080/system/status) — real-time
+- **Live**: `GET http://<your-server-ip>:8080/system/status` — real-time
 - **Repo**: [github.com/sendoeth/post-fiat-signals](https://github.com/sendoeth/post-fiat-signals)
 
 ### Raw Evidence Archive

@@ -12,7 +12,7 @@ Check whether the signal stack is safe to integrate against before you start:
 
 **[`status.json`](status.json)** — current health state of all subsystems (regime engine, Granger pipeline, circuit breaker). Auto-updated every 15 minutes via cron (`update_status.sh`). States: `HEALTHY` (safe to integrate), `DEGRADED` (proceed with caution), `HALT` (signals blocked — protective behavior, not a crash). Each component includes a human-readable message explaining the current condition. Check the `generated_at` timestamp to confirm freshness.
 
-Live endpoint: `GET http://84.32.34.46:8080/system/status` — same schema, real-time.
+Live endpoint: `GET http://<your-server-ip>:8080/system/status` — same schema, real-time. Replace `<your-server-ip>` with the IP of the node running `signal_api.js`.
 
 ## Install
 

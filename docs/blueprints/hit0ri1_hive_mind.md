@@ -216,7 +216,7 @@ cp post-fiat-signals/regime_gate.py .
 # (or use the snippet above — its self-contained)
 
 # 3. set the API endpoint
-export PF_REGIME_API=http://84.32.34.46:8080
+export PF_REGIME_API=http://<your-server-ip>:8080  # replace with your node IP
 
 # 4. test standalone
 python3 regime_gate.py

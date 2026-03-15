@@ -153,7 +153,7 @@ Connecting to http://localhost:8080...
 
 ## When the Live API Returns STOP
 
-If you point the pipeline at the live API (`--url http://84.32.34.46:8080`) instead of the mock, you will currently see **NO_TRADE** with exit code 2. This is correct protective behavior — not a malfunction.
+If you point the pipeline at a live API instance (`--url http://<your-server-ip>:8080`) instead of the mock, you may see **NO_TRADE** with exit code 2. This is correct protective behavior — not a malfunction.
 
 The live market is in a SYSTEMIC regime where all three signal types have been decaying for 5-7 months. Under SYSTEMIC, every signal type historically produces losses. The circuit breaker correctly blocks all trades until market conditions return to NEUTRAL with intact CRYPTO_LEADS correlation.
 
@@ -163,7 +163,7 @@ The live market is in a SYSTEMIC regime where all three signal types have been d
 
 - **[`docs/STOP_STATE_DIAGNOSTIC.md`](docs/STOP_STATE_DIAGNOSTIC.md)** — full root cause analysis of the current STOP state. Includes evidence from live test runs, signal decay tables, threshold justification, and why the thresholds should not be loosened. Read this when you see HALT/STOP and want to understand whether its a market condition or an infrastructure problem (spoiler: its market conditions).
 
-- **Live health endpoint**: `GET http://84.32.34.46:8080/system/status` — same data as `status.json` but real-time from the API.
+- **Live health endpoint**: `GET http://<your-server-ip>:8080/system/status` — same data as `status.json` but real-time from the API. Set your server IP via `export PF_API_URL=http://<your-server-ip>:8080`.
 
 The mock server deliberately returns NEUTRAL-regime data with healthy CRYPTO_LEADS so you can test the EXECUTE path locally regardless of live market conditions.
 
